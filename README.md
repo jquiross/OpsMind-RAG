@@ -1,107 +1,107 @@
 # OpsMind RAG
 
-**OpsMind RAG** es una aplicación full stack orientada a **soporte técnico e incidentes en entornos empresariales**. Combina recuperación aumentada por generación (**RAG**) con **búsqueda híbrida** (semántica + léxica), respuestas **fundamentadas en documentación interna** con **citas verificables**, clasificación de **severidad** y **triage** (cuándo hace falta intervención humana), registro de **consultas y feedback**, y un **harness de evaluación offline** para medir calidad de recuperación y latencia.
+**OpsMind RAG** is a full-stack application aimed at **enterprise-style technical support and incident handling**. It combines retrieval-augmented generation (**RAG**) with **hybrid search** (semantic + lexical), answers **grounded in internal documentation** with **verifiable citations**, **severity** classification and **triage** (when a human needs to step in), logging of **queries and feedback**, and an **offline evaluation harness** to measure retrieval quality and latency.
 
-El objetivo es acercarse a un sistema de conocimiento y soporte **serio y demostrable** (portafolio o MVP), no a un simple chat sobre PDFs sin trazabilidad.
+The goal is a knowledge and support system that feels **serious and demo-ready** (portfolio or MVP)—not a bare-bones “chat with PDFs” with no traceability.
 
 ---
 
-## Qué hace el sistema
+## What the system does
 
-| Área | Descripción |
+| Area | Description |
 |------|-------------|
-| **Ingesta** | Indexa runbooks, FAQs, documentación técnica y tickets (TXT, Markdown, PDF, JSON) en fragmentos con metadatos y embeddings. |
-| **Consulta** | Recibe preguntas en lenguaje natural, opcionalmente **reescribe la consulta** para mejorar la búsqueda, recupera contexto con **pgvector** (similitud) y **BM25** (léxico), fusiona resultados y genera una respuesta **estructurada** con el modelo de lenguaje. |
-| **Trazabilidad** | Las respuestas incluyen **citas** ligadas a chunks concretos; si la evidencia es insuficiente, el sistema lo indica y evita inventar. |
-| **Triage** | Estima **severidad** (p. ej. baja → crítica), si el caso **requiere humano** y sugiere **siguientes pasos**, combinando reglas y, cuando aplica, el LLM. |
-| **Analítica** | Persiste preguntas, trazas de recuperación, latencias y **feedback** (útil / no útil) para alimentar el panel de métricas. |
-| **Evaluación** | Script de evaluación offline con dataset en JSONL: métricas tipo hit@k, precisión@k, MRR, latencias p50/p95 y comparación entre **estrategias** de recuperación. |
-| **Procesamiento asíncrono** | **Celery** + **Redis** para trabajos de ingesta en segundo plano cuando se despliega el worker. |
+| **Ingestion** | Indexes runbooks, FAQs, technical docs, and tickets (TXT, Markdown, PDF, JSON) into chunks with metadata and embeddings. |
+| **Querying** | Accepts natural-language questions, optionally **rewrites the query** for better retrieval, pulls context with **pgvector** (similarity) and **BM25** (lexical), merges results, and generates a **structured** answer with the language model. |
+| **Traceability** | Responses include **citations** tied to specific chunks; if evidence is thin, the system says so and avoids fabricating answers. |
+| **Triage** | Estimates **severity** (e.g. low → critical), whether the case **needs a human**, and suggests **next steps**, using rules and the LLM where appropriate. |
+| **Analytics** | Persists questions, retrieval traces, latencies, and **feedback** (helpful / not helpful) to power the metrics dashboard. |
+| **Evaluation** | Offline evaluation script with a JSONL dataset: metrics such as hit@k, precision@k, MRR, p50/p95 latency, and comparison across retrieval **strategies**. |
+| **Async processing** | **Celery** + **Redis** for background ingestion jobs when the worker is running. |
 
 ---
 
-## Casos de uso típicos
+## Typical use cases
 
-- Responder con base en **documentación interna** (runbooks, políticas, procedimientos).
-- Orientar sobre **causas probables** y **pasos de resolución** ante fallos (auth, facturación, integraciones).
-- Mostrar **evidencia y fuentes** para auditoría o escalamiento.
-- Detectar consultas con **baja confianza** o incidentes que deben **escalar** a ingeniería u otro equipo.
+- Answer from **internal documentation** (runbooks, policies, procedures).
+- Suggest **likely causes** and **resolution steps** for failures (auth, billing, integrations).
+- Surface **evidence and sources** for audits or escalation.
+- Flag **low-confidence** queries or incidents that should **escalate** to engineering or another team.
 
 ---
 
-## Arquitectura (resumen)
+## Architecture (overview)
 
 ```
 [ Next.js ] ──HTTP──▶ [ FastAPI ]
                          ├── Chat (rewrite → retrieve → generate → triage)
-                         ├── Ingestión (parse → chunk → embed → persistir)
-                         ├── Analytics (queries, trazas, feedback)
-                         └── Evaluación (dataset, métricas, reportes)
+                         ├── Ingestion (parse → chunk → embed → persist)
+                         ├── Analytics (queries, traces, feedback)
+                         └── Evaluation (dataset, metrics, reports)
                               │
               ┌───────────────┼───────────────┐
               ▼               ▼               ▼
         PostgreSQL       Redis          Celery worker
-        + pgvector      (broker)        (ingesta async)
+        + pgvector      (broker)        (async ingestion)
 ```
 
-- **Recuperación híbrida**: resultados semánticos y BM25 se combinan (fusión tipo RRF + score ponderado) y se reordenan para el contexto enviado al LLM.
-- **Guardrails básicos**: saneamiento de entrada, límites de tamaño y prompts que tratan el contexto recuperado como **dato**, no como instrucciones del usuario.
+- **Hybrid retrieval**: semantic and BM25 results are merged (RRF-style fusion + weighted scoring) and ranked for the context passed to the LLM.
+- **Basic guardrails**: input sanitization, size limits, and prompts that treat retrieved context as **data**, not as user instructions.
 
-Detalle adicional: [docs/architecture.md](docs/architecture.md).
+More detail: [docs/architecture.md](docs/architecture.md).
 
 ---
 
-## Stack tecnológico
+## Tech stack
 
-| Capa | Tecnología |
-|------|------------|
+| Layer | Technology |
+|-------|------------|
 | **Frontend** | Next.js 15, TypeScript, React, Tailwind CSS, shadcn/ui, TanStack Query |
 | **Backend** | Python 3.12, FastAPI, SQLAlchemy 2, Alembic, Pydantic v2 |
-| **Datos** | PostgreSQL 16, extensión **pgvector**, Redis |
+| **Data** | PostgreSQL 16, **pgvector** extension, Redis |
 | **Jobs** | Celery |
 | **RAG / ML** | OpenAI (embeddings + chat), rank-bm25, tiktoken, pypdf |
 
 ---
 
-## Estructura del repositorio
+## Repository layout
 
-| Ruta | Contenido |
-|------|-----------|
-| `apps/api/` | API FastAPI, modelos, servicios RAG, Alembic, tests |
-| `apps/web/` | Interfaz Next.js (chat, ingesta, dashboard, evaluación) |
-| `data/sample_docs/` | Documentos de ejemplo para demos y seeds |
-| `data/eval/` | Dataset JSONL para evaluación offline |
+| Path | Contents |
+|------|----------|
+| `apps/api/` | FastAPI app, models, RAG services, Alembic, tests |
+| `apps/web/` | Next.js UI (chat, ingestion, dashboard, evaluation) |
+| `data/sample_docs/` | Sample documents for demos and seeds |
+| `data/eval/` | JSONL dataset for offline evaluation |
 | `scripts/` | `seed_demo_data.py`, `reindex.py`, `run_eval.py` |
-| `docs/` | Arquitectura, ingesta, retrieval, evaluación, ADRs |
+| `docs/` | Architecture, ingestion, retrieval, evaluation, ADRs |
 
 ---
 
-## Requisitos
+## Prerequisites
 
-- **Docker** y **Docker Compose** (recomendado para levantar todo el stack).
-- Cuenta y clave **OpenAI** (`OPENAI_API_KEY`) para embeddings y generación de respuestas.
+- **Docker** and **Docker Compose** (recommended to run the full stack).
+- An **OpenAI** API key (`OPENAI_API_KEY`) for embeddings and answer generation.
 
 ---
 
-## Arranque rápido (Docker)
+## Quick start (Docker)
 
-1. **Variables de entorno**
+1. **Environment variables**
 
    ```bash
    cp .env.example .env
    ```
 
-   Edita `.env` y define como mínimo `OPENAI_API_KEY` y las credenciales de Postgres/Redis si las cambias respecto al ejemplo.
+   Edit `.env` and set at least `OPENAI_API_KEY`, and Postgres/Redis credentials if you change them from the example.
 
-2. **Levantar servicios** (Postgres, Redis, API, worker, web):
+2. **Start services** (Postgres, Redis, API, worker, web):
 
    ```bash
    docker compose up --build
    ```
 
-   La API aplica migraciones de Alembic al iniciar.
+   The API runs Alembic migrations on startup.
 
-3. **Datos de demostración** (opcional, crea documentos de ejemplo con embeddings):
+3. **Demo data** (optional—creates sample documents with embeddings):
 
    ```bash
    docker compose exec api python scripts/seed_demo_data.py
@@ -109,56 +109,56 @@ Detalle adicional: [docs/architecture.md](docs/architecture.md).
 
 4. **URLs**
 
-   | Servicio | URL por defecto |
-   |----------|-----------------|
-   | Interfaz web | http://localhost:3000 |
-   | API REST | http://localhost:8000 |
-   | Documentación interactiva (OpenAPI) | http://localhost:8000/docs |
+   | Service | Default URL |
+   |---------|-------------|
+   | Web UI | http://localhost:3000 |
+   | REST API | http://localhost:8000 |
+   | Interactive API docs (OpenAPI) | http://localhost:8000/docs |
 
 ---
 
-## Desarrollo sin Docker (referencia)
+## Local development without Docker (reference)
 
-- **Backend:** entorno Python 3.12, `cd apps/api`, instalar `requirements/dev.txt`, configurar `.env` con `POSTGRES_HOST=localhost`, ejecutar `alembic upgrade head` y `uvicorn app.main:app --reload`.
-- **Frontend:** `cd apps/web`, `npm ci`, `npm run dev` (variable `NEXT_PUBLIC_API_URL` apuntando a la API).
-
----
-
-## Scripts y utilidades
-
-| Comando | Uso |
-|---------|-----|
-| `make dev` | Equivale a `docker compose up --build`. |
-| `python scripts/seed_demo_data.py` | Carga documentos de muestra con IDs estables (útil junto al dataset de eval). |
-| `python scripts/reindex.py` | Reconstruye chunks y embeddings para documentos ya existentes. |
-| `python scripts/run_eval.py` | Ejecuta evaluación offline; genera informes bajo `artifacts/` y registra una corrida en la base. |
+- **Backend:** Python 3.12, `cd apps/api`, install `requirements/dev.txt`, set `.env` with `POSTGRES_HOST=localhost`, run `alembic upgrade head`, then `uvicorn app.main:app --reload`.
+- **Frontend:** `cd apps/web`, `npm ci`, `npm run dev` (set `NEXT_PUBLIC_API_URL` to the API base URL).
 
 ---
 
-## Tests y calidad
+## Scripts
 
-| Ámbito | Comando |
-|--------|---------|
-| Tests unitarios API | `cd apps/api && pytest -m "not integration"` |
-| Lint / build frontend | `cd apps/web && npm run lint && npm run build` |
+| Command | Purpose |
+|---------|---------|
+| `make dev` | Same as `docker compose up --build`. |
+| `python scripts/seed_demo_data.py` | Loads sample documents with stable IDs (pairs well with the eval dataset). |
+| `python scripts/reindex.py` | Rebuilds chunks and embeddings for existing documents. |
+| `python scripts/run_eval.py` | Runs offline evaluation; writes reports under `artifacts/` and stores a run in the database. |
+
+---
+
+## Tests and quality
+
+| Scope | Command |
+|-------|---------|
+| API unit tests | `cd apps/api && pytest -m "not integration"` |
+| Frontend lint / build | `cd apps/web && npm run lint && npm run build` |
 | E2E (Playwright) | `cd apps/web && npm run test:e2e` |
 
-Integración continua: [.github/workflows/ci.yml](.github/workflows/ci.yml).
+CI: [.github/workflows/ci.yml](.github/workflows/ci.yml).
 
 ---
 
-## Documentación adicional
+## Further documentation
 
-- [Arquitectura](docs/architecture.md) — visión general y diagrama.
-- [Ingesta](docs/ingestion.md) — formatos y pipeline.
-- [Recuperación](docs/retrieval.md) — estrategias semántica, BM25 e híbrida.
-- [Evaluación](docs/evaluation.md) — métricas y ejecución del runner.
-- [Ejemplos de API](docs/api_examples.md) — payloads típicos.
-- [Guion de demo](docs/demo_script.md) — pasos sugeridos para una demo.
-- [Decisiones (ADRs)](docs/decisions/) — decisiones de diseño breves.
+- [Architecture](docs/architecture.md) — overview and diagram.
+- [Ingestion](docs/ingestion.md) — formats and pipeline.
+- [Retrieval](docs/retrieval.md) — semantic, BM25, and hybrid strategies.
+- [Evaluation](docs/evaluation.md) — metrics and running the eval harness.
+- [API examples](docs/api_examples.md) — sample payloads.
+- [Demo script](docs/demo_script.md) — suggested demo steps.
+- [ADRs](docs/decisions/) — short design decisions.
 
 ---
 
-## Licencia
+## License
 
-Proyecto de referencia / portafolio: añade la licencia que corresponda a tu uso (MIT, propia, etc.).
+Reference / portfolio project—add whichever license fits your use case (MIT, proprietary, etc.).

@@ -1,0 +1,14 @@
+[
+  {
+    "title": "Intermittent 401 on SSO callback",
+    "severity": "high",
+    "body": "Users in EU region report 401 after IdP rotation. Correlates with AUTH-04 deployment.",
+    "resolution_summary": "Updated callback URL in provider console."
+  },
+  {
+    "title": "Webhook retries exhausted",
+    "severity": "medium",
+    "body": "Signature validation failed for partner X after secret rotation.",
+    "resolution_summary": "Synced secret on receiver side."
+  }
+]
